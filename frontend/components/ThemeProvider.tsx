@@ -1,47 +1,64 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo } from 'react'
+import { ThemeProvider as MuiThemeProvider, CssBaseline } from '@mui/material'
+import { CacheProvider } from '@emotion/react'
+import createEmotionCache from '@/lib/createEmotionCache'
+import { lightTheme, darkTheme } from '@/lib/theme'
 
-type Theme = 'light' | 'dark'
+type ThemeMode = 'light' | 'dark'
 
 type ThemeContextType = {
-  theme: Theme
+  mode: ThemeMode
   toggleTheme: () => void
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
+// Client-side cache shared for the whole session
+const clientSideEmotionCache = createEmotionCache()
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>('dark')
+  const [mode, setMode] = useState<ThemeMode>('dark')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     // Check localStorage and system preference
-    const stored = localStorage.getItem('theme') as Theme | null
+    const stored = localStorage.getItem('theme') as ThemeMode | null
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
 
     if (stored) {
-      setTheme(stored)
+      setMode(stored)
       document.documentElement.classList.toggle('dark', stored === 'dark')
     } else {
       const systemTheme = prefersDark ? 'dark' : 'light'
-      setTheme(systemTheme)
+      setMode(systemTheme)
       document.documentElement.classList.toggle('dark', systemTheme === 'dark')
     }
   }, [])
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light'
-    setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
-    document.documentElement.classList.toggle('dark', newTheme === 'dark')
+    const newMode = mode === 'light' ? 'dark' : 'light'
+    setMode(newMode)
+    localStorage.setItem('theme', newMode)
+    document.documentElement.classList.toggle('dark', newMode === 'dark')
   }
 
+  const theme = useMemo(() => (mode === 'dark' ? darkTheme : lightTheme), [mode])
+
+  // Provide a consistent context value even before mount
+  const contextValue = useMemo(() => ({ mode, toggleTheme }), [mode])
+
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
+    <CacheProvider value={clientSideEmotionCache}>
+      <ThemeContext.Provider value={contextValue}>
+        <MuiThemeProvider theme={theme}>
+          <CssBaseline />
+          {children}
+        </MuiThemeProvider>
+      </ThemeContext.Provider>
+    </CacheProvider>
   )
 }
 

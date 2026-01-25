@@ -3,11 +3,15 @@ import Header from '@/components/Header'
 import Summary from '@/components/Summary'
 import Experience from '@/components/Experience'
 import Education from '@/components/Education'
+import ProjectsSection from '@/components/ProjectsSection'
 import Skills from '@/components/Skills'
 import OpenSource from '@/components/OpenSource'
 import Interests from '@/components/Interests'
 import AnimatedSection from '@/components/AnimatedSection'
 import ThemeToggle from '@/components/ThemeToggle'
+
+// Force dynamic rendering - don't try to fetch during build
+export const dynamic = 'force-dynamic'
 
 async function getResumeData(): Promise<Resume> {
   const apiUrl = process.env.API_URL || 'http://localhost:8080'
@@ -57,10 +61,14 @@ export default async function Home() {
           </AnimatedSection>
 
           <AnimatedSection delay={300}>
-            <OpenSource projects={resume.openSource} />
+            <ProjectsSection projects={resume.projects} />
           </AnimatedSection>
 
           <AnimatedSection delay={350}>
+            <OpenSource projects={resume.openSource} />
+          </AnimatedSection>
+
+          <AnimatedSection delay={400}>
             <Interests interests={resume.interests} />
           </AnimatedSection>
         </div>

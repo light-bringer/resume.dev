@@ -12,38 +12,30 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build the application
+# Ensure public directory exists (Next.js requires it)
+RUN mkdir -p public
+
+# Build the application (standalone output configured in next.config.ts)
 RUN npm run build
 
-# Production stage
-FROM node:20-alpine AS runner
+# Production stage using distroless
+FROM gcr.io/distroless/nodejs20-debian12
 
 WORKDIR /app
 
 # Set environment to production
 ENV NODE_ENV=production
+ENV PORT=3000
 
-# Copy package files and install production dependencies only
-COPY package*.json ./
-RUN npm ci --only=production
-
-# Copy built application from builder
-COPY --from=builder /app/.next ./.next
+# Copy standalone build from builder
+# Next.js standalone build creates a minimal server in .next/standalone
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
-# Create a non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
-RUN chown -R nextjs:nodejs /app
-
-# Switch to non-root user
-USER nextjs
-
+# Distroless runs as non-root by default (uid 65532)
 # Expose port
 EXPOSE 3000
 
-# Set environment variable for Next.js
-ENV PORT=3000
-
-# Start the application
-CMD ["npm", "start"]
+# Start the application using node directly (no npm available in distroless)
+CMD ["server.js"]

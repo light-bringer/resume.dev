@@ -1,12 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
 
-	"github.com/light-bringer/resume.dev/data"
+	"github.com/justinas/alice"
+	"github.com/light-bringer/resume.dev/handlers"
+	"github.com/light-bringer/resume.dev/middleware"
 )
 
 func main() {
@@ -16,57 +17,43 @@ func main() {
 		port = "8080"
 	}
 
-	// Set up routes
-	http.HandleFunc("/api/resume", handleResume)
-	http.HandleFunc("/health", handleHealth)
+	// Create router
+	mux := http.NewServeMux()
 
-	// Enable CORS for frontend
-	handler := enableCORS(http.DefaultServeMux)
+	// Register routes
+	mux.HandleFunc("/api/resume", handlers.HandleResume)
+	mux.HandleFunc("/api/projects", handlers.HandleProjects)
+	mux.HandleFunc("/api/certifications", handlers.HandleCertifications)
+	mux.HandleFunc("/api/skills", handlers.HandleSkills)
+	mux.HandleFunc("/api/contact", handlers.HandleContact)
+	mux.HandleFunc("/health", handlers.HandleHealth)
+	mux.HandleFunc("/metrics", handlers.HandleMetrics)
 
-	log.Printf("Starting server on port %s", port)
-	if err := http.ListenAndServe(":"+port, handler); err != nil {
+	// Create middleware chain using Alice for cleaner composition
+	chain := alice.New(
+		middleware.LoggingMiddleware,
+		middleware.CORSMiddleware,
+		middleware.RateLimitMiddleware(100), // 100 requests per second
+	).Then(mux)
+
+	// Log available endpoints
+	log.Printf("Starting Resume API server on port %s", port)
+	log.Printf("Endpoints available:")
+	log.Printf("  - GET  /api/resume          Complete resume data")
+	log.Printf("  - GET  /api/projects        Projects only")
+	log.Printf("  - GET  /api/certifications  Certifications only")
+	log.Printf("  - GET  /api/skills          Technical skills only")
+	log.Printf("  - POST /api/contact         Contact form submission")
+	log.Printf("  - GET  /health              Health check")
+	log.Printf("  - GET  /metrics             Server metrics")
+	log.Printf("")
+	log.Printf("Middleware enabled:")
+	log.Printf("  - Request logging")
+	log.Printf("  - CORS (Access-Control-Allow-Origin: *)")
+	log.Printf("  - Rate limiting (100 requests/second using Uber's token bucket)")
+
+	// Start server
+	if err := http.ListenAndServe(":"+port, chain); err != nil {
 		log.Fatal(err)
 	}
-}
-
-// handleResume returns the resume data as JSON
-func handleResume(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	resume := data.GetResumeData()
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resume); err != nil {
-		log.Printf("Error encoding resume data: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-}
-
-// handleHealth returns a simple health check response
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{
-		"status": "healthy",
-	})
-}
-
-// enableCORS adds CORS headers to allow frontend requests
-func enableCORS(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }

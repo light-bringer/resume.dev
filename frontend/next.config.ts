@@ -2,9 +2,9 @@ import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  env: {
-    API_URL: process.env.API_URL || 'http://localhost:8080',
-  },
+  output: 'standalone',
+  // Remove 'env' property - it bakes values at build time
+  // Use process.env directly for runtime variables
   images: {
     remotePatterns: [
       {

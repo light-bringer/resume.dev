@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  # Backend API - Not exposed to host
+  backend:
+    container_name: resume-api
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      - PORT=8080
+    networks:
+      - resume-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+  # Frontend - Only this is exposed to host
+  frontend:
+    container_name: resume-frontend
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    environment:
+      - API_URL=http://backend:8080
+      - NODE_ENV=production
+    ports:
+      - "3000:3000"  # Only frontend is exposed to host
+    networks:
+      - resume-network
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Note: Healthcheck disabled for distroless (no shell/wget)
+    # Port exposure and depends_on ensure proper startup order
+    restart: unless-stopped
+
+networks:
+  resume-network:
+    driver: bridge

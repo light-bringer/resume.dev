@@ -11,12 +11,9 @@ services:
       - PORT=8080
     networks:
       - resume-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
+    # Note: Healthcheck disabled for distroless (no shell/wget/curl)
+    # Alternative: Use Docker's built-in HTTP healthcheck or external monitoring
+    # For now, relying on startup order and network connectivity
     restart: unless-stopped
 
   # Frontend - Only this is exposed to host
@@ -34,9 +31,9 @@ services:
       - resume-network
     depends_on:
       backend:
-        condition: service_healthy
-    # Note: Healthcheck disabled for distroless (no shell/wget)
-    # Port exposure and depends_on ensure proper startup order
+        condition: service_started
+    # Note: Healthcheck disabled for distroless (no shell/wget/curl)
+    # depends_on ensures backend starts first, frontend will retry on connection errors
     restart: unless-stopped
 
 networks:

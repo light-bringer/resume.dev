@@ -11,18 +11,19 @@ RUN go mod download
 COPY . .
 
 # Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o resume-api .
+# CGO_ENABLED=0 creates a static binary compatible with distroless
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags="-w -s" -o resume-api .
 
-# Final stage
-FROM alpine:latest
+# Production stage using distroless
+# Uses static-debian12 for static Go binaries (no libc needed)
+FROM gcr.io/distroless/static-debian12
 
-RUN apk --no-cache add ca-certificates wget
-
-WORKDIR /root/
+WORKDIR /app
 
 # Copy the binary from builder
 COPY --from=builder /app/resume-api .
 
+# Distroless runs as non-root by default (uid 65532)
 # Expose port
 EXPOSE 8080
 
